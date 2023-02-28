@@ -1,0 +1,541 @@
+---
+title: "BUA 455 Lecture 12 - Parallel Lines Models"
+author: "Penelope Pooler Eisenbies"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    code_folding: show
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+---
+
+### Getting Started with Markdown
+
+- Download Zipped R project 
+
+- Open Zipped folder and copy internal folder (R Project) to a BUA 345 folder on your computer NOT IN DOWLOADS
+
+- Click on .Rproj file to open project
+
+- Click on `code_data_output` file to open it.
+
+- Click on `BUA_345_Lecture_12.Rmd` to open it.
+
+- Run Setup Chunk.
+
+---
+
+### Setup
+
+* The setup chunk shows the packages needed for this demo.   
+
+* R will install specified packages if needed (only required once after R is installed)  
+
+* R will load specified packaged (required every time you start a new R session)  
+
+* The first time you run this code, R will install these packages which will be slow.  
+
+* **If you get warnings, that's okay.**  
+
+* If you get **error messages**, I (or TA), can help you.
+
+---
+
+### Setup Chunk for Lecture 12
+
+```{r setup for Lecture 12, include = T}
+
+
+# this line specifies options for default options for all R Chunks
+knitr::opts_chunk$set(echo=T, highlight=T)
+
+# suppress scientific notation
+options(scipen=100)
+
+# install helper package that loads and installs other packages, if needed
+if (!require("pacman")) install.packages("pacman", repos = "http://lib.stat.cmu.edu/R/CRAN/")
+
+# install and load required packages
+pacman::p_load(pacman,tidyverse, magrittr, olsrr, gridExtra, ggiraphExtra)
+
+# verify packages
+p_loaded()
+
+```
+
+**NOTES:
+
+- ** Don't worry about `xaringanthemer` package (required for my slides but not for your code).
+
+- New Package: `ggiraphExtra`
+
+---
+
+### Review Question - Import data
+
+-   Recall The Tennessee Real Estate data:
+
+```{r import data and create transformed variable}
+
+# import and examine data
+tn_houses <- read_csv("TN_houses.csv", show_col_types = F) |>
+  glimpse(width=75)
+
+```
+
+---
+
+### Review Question -  Natural Log transformation
+
+-   We will build an MLR model was using the natural log of Price (ln_Price)
+-   This transformation is needed because Price is **RIGHT-SKEWED**.
+-   Review of how to create this transformation
+
+```{r ln transformation of Price}
+
+# create new variable in tn_houses dataset
+# ln_price = the natural log of price
+tn_houses <- tn_houses |>
+  mutate(ln_price = log(Price)) |>
+  glimpse( width=75)
+
+```
+
+---
+
+### Review Question - Examination Variable Distrbutions
+
+- Histogram of `Price` (`hist_price`), shows distribution of raw data is right-skewed with high outliers.
+
+- Histogram of `ln_price` (`hist_ln_price`) shows distribution of ln transformed data is symmetric and normally distributed.
+
+```{r creating  and formatting histograms of Price and ln_price, fig.width=14, fig.height=7, fig.align='center'}
+
+# histogram of original price data
+hist_Price <- tn_houses |> 
+  ggplot() +  
+  geom_histogram(aes(x=Price), color="darkblue", fill="lightblue") + 
+  labs(x="Selling Price", y="Frequency") +  
+  theme_classic() + 
+  theme(axis.title = element_text(size=18),
+        axis.text = element_text(size=15),
+        plot.background = element_rect(colour = "darkgrey", fill=NA, size=2))
+
+# histogram of ln_price
+hist_ln_price <- tn_houses |> 
+  ggplot() +  
+  geom_histogram(aes(x=ln_price), color="darkgreen", fill="lightgreen") + 
+  labs(x="Natural Log of Selling Price", y="Frequency") +  
+  theme_classic()+ 
+  theme(axis.title = element_text(size=18),
+        axis.text = element_text(size=15),
+        plot.background = element_rect(colour = "darkgrey", fill=NA, size=2))
+
+grid.arrange(hist_Price, hist_ln_price, ncol=2)
+
+```
+
+---
+
+
+### Review Question -  Regression model using `ln_price`
+
+```{r regression model using ln_price}
+
+# saves model and prints it to screen because it is enclosed in parentheses
+(tn_houses_mlr <- ols_regress(ln_price ~ Bedrooms + Bathrooms, data=tn_houses))
+
+```
+
+---
+
+### Lecture 12 In-class Exercises - Back-transforming Model Estimates
+
+#### **Question 1 (L12) - Session ID: bua345s23**
+
+**Based on the model output, What is the estimated price of a house with 4 bedrooms and 3 bathrooms (rounded to closest $1000)?**
+
+```{r review question incomplete R code}
+
+# incomplete model equation
+# fill in intercept and values from question
+# (y_est <- ___ + 0.056*4 + 0.375*3)
+
+# back-transform y_est using exp function
+# (est_dollars <- exp(y_est))
+
+# round to 1000
+# round(est_dollars,-3)
+
+```
+
+NOTE: All 3 steps above could be done with one line but it is helpful to break it down when learning.
+
+### Data Examples - R Star Wars Dataset
+
+- Dataset of characters from Star Wars franchise
+
+```{r eval=F}
+?starwars # run this line to see help file documentation
+```
+
+```{r example from R starwars data}
+
+my_starwars <- starwars           # save R starwars dataset to Global Environment
+my_starwars |> glimpse(width=75)  # examine data
+
+```
+
+---
+
+### Examining Data
+
+-   A good way to examine categorical data variables is to examine how many observations are in each category.
+-   For example, we can examine the Star Wars character data by species and gender
+-   Too many species...
+
+```{r summary of starwars species}
+
+# summarizing starwars character data by species and gender
+my_starwars |> select(species, gender) |> table()
+
+```
+
+---
+
+### Lecture 12 In-class Exercises 
+
+#### **Question 2 (L12) - Session ID: bua345s23**
+
+**Is species a nominal or ordinal variable?**
+
+---
+
+### Star wars Example  - Examining categorical Data
+
+- Since `Human` is the most common species, we can filter the data to look at those characters only.
+-   Then we can examine prevalence of each gender and eye color among human characters.
+
+```{r summary of gender and eye color}
+
+my_starwars |> filter(species=="Human") |> # filter to humans only
+  select(gender, eye_color) |>             # examine genders and eye colors
+  table()
+
+```
+
+---
+
+### Lecture 12 In-class Exercises
+
+#### **Question 3 (L12) - Session ID: bua345s23**
+
+- **Which R command is used to summarize the number of observations in each gender x eye_color combination?**
+
+NOTE: This useful command will also be used in HW 6.
+
+---
+
+### Data Examples - GT cars dataset
+
+- Deluxe automobiles from the 2014-2017 period
+
+```{r eval=F}
+?gt::gtcars # run this line to see help file documentation
+```
+
+```{r import gtcars dats}
+
+gt_cars <- read_csv("gt_cars.csv", show_col_types = F) |> # import data
+  glimpse(width=75) 
+
+```
+
+---
+
+### GT Cars Example  - Examining categorical Data
+
+```{r examine categories within gt data}
+
+gt_cars |> select(bdy_style, year) |> table()
+
+```
+<br>
+
+### Lecture 12 In-class Exercises
+
+#### **Question 4 (L12) - Session ID: bua345s23**
+
+**Which variable in gt_cars, body style (`bdy_style`) or `year` **could** be treated as ordinal?**
+
+---
+
+### Data Example - Celebrity Salaries Data
+
+- Many (not all) celebrities see a decrease in their annual income as they age.
+
+- There is a negative relationship between wages and ages.
+
+- Is this relationship the same for males a females?
+
+```{r import and examine celebrity data}
+
+# import celebrity data
+celeb <- read_csv("celeb.csv", show_col_types = F) |>
+  glimpse(width=75) 
+
+```
+
+---
+
+### Celebrity Salaries Data - Examining categories and Correlations
+
+```{r}
+celeb |> select(Gender) |> table()  # examine counts for each category
+
+celeb |> select(Earnings, Age) |> cor() |> round(2) # examine correlation between earnings and age
+
+```
+
+
+---
+
+### Celebrity Salaries Data - Examining Model Options
+
+#### Model Option 1: SLR
+
+- This model assumes no difference between males and females.
+- In this case we use Base R command for regression, `lm`.
+- Model created with `lm` can be used to create an interactive plot.
+
+
+```{r celeb slr model}
+
+# slr model created using lm
+celeb_slr <- lm(Earnings ~ Age, data=celeb)
+
+# create and save interactive plot
+(int_clb_slr <- ggPredict(celeb_slr, interactive=T))
+
+```
+
+---
+
+### Celebrity Salaries Data - Examining Model Options
+
+#### Model Option 2: Categorical Regression Model
+
+-   The SLR mode is okay, but we can probably do better.
+-   It is logical to suspect there is a difference between males and females in terms of earnings
+-   We add `Gender` to the model to test this:
+
+
+```{r celeb mlr model}
+
+# mlr model created using lm
+celeb_cat_lm <- lm(Earnings ~ Age + Gender, data=celeb)
+
+# create and save interactive plot
+(int_clb_mlr <- ggPredict(celeb_cat_lm, interactive=T))
+
+```
+
+---
+
+### Celebrity Salaries Data - MLR Model Output
+
+- We can see the model equation (poorly formatted) for each gender, in the plot.
+- We can also get these equations from the model output, but it requires a little work.
+- Examine the model output:
+
+```{r celeb cat mlr formal output}
+
+# formatted regression output
+# model is saved and printed to screen
+(celeb_cat_ols<- ols_regress(Earnings ~ Age + Gender, data=celeb))
+
+```
+
+---
+
+
+### Getting Model Equations from Regression Output
+
+- By default R chooses baseline categories alphabetically
+
+  - `Female` is before `Male` so `Female` is the baseline
+
+  - Female SLR Model: `Est. Earnings = 134.112 - 2.37 * Age`
+
+  - Male SLR Model:
+
+    - `Est. Earnings = 134.112 - 2.37 * Age + 15.383`
+
+    - `Est. Earnings = 134.112 + 15.383 - 2.37*Age`
+
+    - `Est. Earnings = 149.505 - 2.37 * Age`
+
+- The difference between the intercepts for Females and Males is shown in the model output.
+
+  - Difference in intercepts is labeled with name of categorical variable and category
+
+  - Difference (Increase) for Males is labeled **`GenderMale`** and equals **`15.383`**
+
+---
+
+### Lecture 12 In-class Exercises
+
+#### **Question 5 (L12) - Session ID: bua345s23**
+
+**Based on our categorical regression model, is the difference between male and female earnings (approx. 15 $M), statistically significant?**
+
+HINT:  Look at the p-value for the **`GenderMale`** term in the model to answer this question.
+
+---
+
+### Data Example - House Remodeling Data
+
+-   What is the effect of remodeling on house selling price?
+
+```{r import and examine house remodel data}
+
+# import house remodeling data
+house_remodel <- read_csv("house_remodel.csv", show_col_types = F) |>
+  glimpse(width=75) 
+
+```
+
+---
+
+### House Remodeling Data - Examine Categories and Correlations
+
+-   What is the effect of remodeling on house selling price?
+
+```{r  examine categories and correlations} 
+
+# examine number of obs in each category
+house_remodel |> select(Remodeled) |> table() 
+
+# correlation between price and square feet
+house_remodel |> select(Price, Square_Feet) |> cor() |> round(2)
+
+```
+
+
+---
+
+### House Remodeling Data - Examining Model Options
+
+#### Model Option 1: SLR
+
+- SLR model assumes no difference due to remodeling
+- Again, we use Base R command for regression, `lm`
+- Model created with `lm` can be used to create an interactive plot.
+
+
+```{r house remodel slr model}
+
+# slr model created using lm
+rem_slr <- lm(Price ~ Square_Feet, data=house_remodel)
+
+# create and save interactive plot
+(int_rem_slr <- ggPredict(rem_slr, interactive=T))
+
+```
+
+---
+
+### House Remodeling Data - Examining Model Options
+
+#### Model Option 2: Categorical Regression Model
+
+- SLR mode is okay, but there is likely to be a difference between `Remodeled` and un-`Remodeled` houses.
+- To test for that difference we add the categorical variable `Remodeled` to the model:
+
+```{r house remodel mlr model}
+
+# mlr model created using lm
+rem_cat_lm <- lm(Price ~ Square_Feet + Remodeled, data=house_remodel)
+
+# create and save interactive plot
+(int_rem_mlr <- ggPredict(rem_cat_lm, interactive=T))
+
+```
+
+---
+
+### House Remodel dataa - MLR Model Output
+
+- We can see the model equation (poorly formatted) for each category, in the plot.
+- We can also get these equations from the model output, but it requires a little work.
+- Examine the model output:
+
+```{r house rem cat mlr formal output}
+
+# formatted regression output
+# model is saved and printed to screen
+(house_rem_ols<- ols_regress(Price ~ Square_Feet + Remodeled, data=house_remodel))
+
+```
+
+---
+
+### Getting Model Equations from Regression Output
+
+- By default R chooses baseline categories alphabetically
+
+  - `No` is before `Yes` so un-`Remodeled` houses are the baseline
+
+  - un-Remodeled SLR Model: `Est. Price = 137549.093 + 137.879 * Square_Feet`
+
+  - Remodeled SLR Model:
+
+    - `Est. Price = 137549.093 + 137.879 * Square_Feet + 90917.216`
+
+    - `Est. Price = 137549.093 + 90917.216 + 137.879 * Square_Feet`
+
+    - `Est. Price = _____ + 137.879 * Square_Feet`
+
+---
+
+### Lecture 12 In-class Exercises
+
+#### **Question 6 (L12) - Session ID: bua345s23**
+
+The difference between the intercepts for `Remodeled` and un-`Remodeled` houses is shown in the model output.
+
+- Difference in intercepts is labeled with name of categorical variable and category
+
+- Difference (Increase) for remodeling is labeled **`RemodeledYes`** and equals **`90917.216`**
+
+**What is the **intercept** for the prices of 'Remodeled' houses in the Categorical Regression model (Round to closest thousand ($K).**
+
+---
+
+#### **Question 7 (L12) - Session ID: bua345s23**
+
+**Based on our categorical regression model, is the difference in selling price between remodeled (Remodeled = `Yes`) and un-remodeled (Remodeled = `No`) homes statistically significant?**
+
+---
+
+### **Key Points from Today**
+
+- Categorical Parallel Lines Model
+
+  - Separate SLR model for each category.
+  - Modeling categories simultaneously with one mode is
+    -   more efficient
+    -   more accurate 
+
+-   Next Similar Model BUT each category has a different slope
+ 
+-   HW 6 is posted (Due 3/6)
+ 
+-   First set of data is **almost** identical to `house_remodel` data.
+
+<br>
+
+You may submit an 'Engagement Question' about each lecture until midnight on the day of the lecture. **A minimum of four submissions are required during the semester.**
+
+
